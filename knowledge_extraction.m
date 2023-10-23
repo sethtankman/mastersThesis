@@ -1,7 +1,5 @@
-load('DT_Diagnosis.mat','net'); % NAMAC 
-% net = patternnet % Very Basic NN
-view(net)
-
+%load('DT_Diagnosis.mat','net'); % NAMAC 
+load('simp.mat', 'net'); % simple NN
 
 layerNum = 1;
 nodeNum = 1;
@@ -27,8 +25,8 @@ while(layerNum < net.numLayers)
         myBNS.layerConnect = false; % There is no weight coming from layer 1 to layer 1.
         myBNS.outputConnect = true; % there is an output layer.
         myBNS.layers{1}.transferFcn = net.layers{layerNum}.transferFcn; % Set the same transfer function as with the original network
-        netBias = net.b{layerNum}(nodeNum, 1)
-        netWeight = net.IW{layerNum}(nodeNum, :) % Input weights
+        %netBias = net.b{layerNum}(nodeNum, 1)
+        %netWeight = net.IW % Input weights
         if(layerNum == 1)
             myBNS = setwb(myBNS, [net.b{layerNum}(nodeNum,1),net.IW{layerNum}(nodeNum,:)]);
         else
@@ -37,7 +35,7 @@ while(layerNum < net.numLayers)
 
     
         % Perform Transformation Algorithm
-        [negVec, w] = positiveForm(myBNS.IW{1}); % Obtain positive form of weights and negation vector
+        [negVec, w] = positiveForm(myBNS.IW{1}) % Obtain positive form of weights and negation vector
         [w, I] = sort(w, 'descend'); % Sort weights in descending order
         negVec = negVec(I); % Sort negation vector the same way.
     
@@ -102,10 +100,10 @@ while(layerNum < net.numLayers)
         T2 = [T2 array2table(ruleSet)];
         T2.Properties.VariableNames = T.Properties.VariableNames;
         T = [T;T2];
-        nodeNum = nodeNum + 1
+        nodeNum = nodeNum + 1;
     end
-    layerNum = layerNum + 1
-    nodeNum = 1
+    layerNum = layerNum + 1;
+    nodeNum = 1;
 end
 % Remove duplicate rules 
 T = unique(T);
