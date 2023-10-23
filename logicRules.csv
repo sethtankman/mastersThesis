@@ -1,0 +1,8 @@
+outPut,input1,input2,input3
+1,~a,~b,c
+1,~a,b,0
+1,a,0,~c
+1,0,b,c
+1,a,~b,c
+1,a,b,~c
+1,a,b,c
