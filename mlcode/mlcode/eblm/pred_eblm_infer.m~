@@ -1,0 +1,2 @@
+function out = pred_eblm_infer(conf,model,vld_dat)
+end

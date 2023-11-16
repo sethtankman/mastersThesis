@@ -1,0 +1,10 @@
+function rule2tex(conf,R,T)
+% author: son tran
+
+fid = fopen(strcat(conf.dir,conf.tex_f_name,'.tex'));
+if conf.full_doc
+end
+
+if conf.full_doc
+end
+end

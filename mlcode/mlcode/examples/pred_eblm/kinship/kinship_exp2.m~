@@ -1,0 +1,107 @@
+%%%%%
+% give x,y predict relationship(x,y)
+%%%%
+clear all;
+if ispc
+    HOME = [getenv('HOMEDRIVE') getenv('HOMEPATH')];
+else
+    HOME = getenv('HOME');
+end
+
+addpath(genpath(strcat(HOME,'/WORK/projects/DeepSymbolic/code')));
+EXP_DIR = strcat(HOME,'/WORK/experiments/DS/eblm/Kinship/encode_ae/');
+clau_h_num = 200; % number of hidden unit for clauses
+
+x_v = [];  % indices of visible units for  objects
+x_p = [];  % indices of visible units for predicates
+h_p = [];  % indices of hidden units for  predicates
+h_c = [];  % indices of hidden units for clauses
+
+
+
+%% load data
+[pred_list,obj_list,data,rules] = kinship_data();
+
+%% construct model's structure
+pred_num = numel(pred_list);
+obj_num  = numel(obj_list);
+
+%% learning
+conf.sNum = 0;
+conf.bNum = 0;
+conf.gNum = 1;
+conf.eNum = 10000;
+conf.params = [0.9,0.1,0.0000,0];
+conf.ENUM_4_LR_CHANGE = 50000;
+
+conf.clause_h_num = clau_h_num; % number of hidden for clause
+conf.object_num = obj_num;
+conf.predicate_num = pred_num;
+conf.initial_cv = .5;
+conf.pred_model_type = 'ae';
+conf.pred_infer_type = 'stochastic';
+conf.rule_infer_type = 'stochastic';
+
+model_save = 'model.mat';
+for trial = 1:1
+for hidNum = [100,200]
+conf.clause_h_num = hidNum;
+for lr = [0.5]
+conf.params(1)=lr;
+conf.params(2)=lr;
+for cv = [0.1,0.5,1,3,5,6,7,8,9,10]
+    conf.initial_cv = cv;
+    log_file = strcat(EXP_DIR,'rs_h',num2str(hidNum),...
+                      '_lr',num2str(lr),'_cv',num2str(cv),...
+                      '_trial',num2str(trial),'.mat');
+    rs = [];
+    for i = 1:size(rules,1)
+        trn_inds = setdiff(1:size(rules,1),i);   
+        tst_rules = rules(i,:);
+        trn_rules = rules(trn_inds,:);
+        trn_dat = data(1:2*obj_num,trn_inds);
+        trn_lab = data(2*obj_num+1:end,trn_inds);
+        vld_dat = data(1:2*obj_num,i);
+        vld_lab = data(2*obj_num+1:end,i);
+        
+        if ~exist(model_save,'file')
+            model = pred_eblm(conf,trn_rules,trn_dat,trn_lab);
+            %save(model_save,'model')
+        else
+            continue;
+            load(model_save);
+        end
+        % Reasoning
+        out = pred_eblm_infer(conf,model,vld_dat,vld_lab);
+        
+        pred = out(mod(out,2)~=0); pred = pred(1);
+        crr = find(vld_lab);
+        crr = crr(mod(crr,2)~=0); crr = crr(1);
+        %[pred,crr]
+        rs = [rs,pred==crr];
+ 
+        %fprintf('Given objects: %s %s\n',obj_list{find(vld_dat(1:obj_num))}, ...
+        %        obj_list{find(vld_dat(obj_num+1:2*obj_num))});
+        %fprintf('Check if the relations: %s %s %s',obj_list{tst_rules(1)},obj_list{tst_rules(2)},pred_list{tst_rules(3)});
+        %find(vld_lab)
+        %for p = find(vld_lab)'
+        %    fprintf('\n%s',pred_list{ceil(p/2)})
+        %    if rem(p,2)==0
+        %        fprintf('_');
+        %    end
+        %end
+        %fprintf('\n');
+        %fprintf('found')
+        %for p = out'
+        %    fprintf('\n%s',pred_list{ceil(p/2)})
+        %    if rem(p,2)==0
+        %        fprintf('_');
+        %    end
+        %end
+        %fprintf('\n');
+    end
+    save(log_file,'rs');
+end
+end
+end
+end

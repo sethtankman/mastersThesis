@@ -1,0 +1,2 @@
+function outp = confidence_max_sat(R,inp)
+end

@@ -1,14 +1,16 @@
-%load('DT_Diagnosis.mat','net'); % NAMAC 
-load('simp.mat', 'net'); % simple NN
+clear;
 
-layerNum = 1;
-nodeNum = 1;
+load('DT_Diagnosis.mat','net'); % NAMAC 
+%load('simp.mat', 'net'); % simple NN
+
+layerNum = 1
+nodeNum = 1
 maxColumns = getMaxColumns(net);
 T = array2table(zeros(1, maxColumns+1));
 T.Properties.VariableNames(1) = "output";
 
-while(layerNum < net.numLayers)
-    while(nodeNum < net.layers{layerNum}.size)
+while(layerNum <= net.numLayers) %net.numLayers
+    while(nodeNum <= net.layers{layerNum}.size) % net.layers{layerNum}.size
         % Create Basic Neural Structure
         myBNS = network; % later use network(numInputs,numLayers,biasConnect,inputConnect,layerConnect,outputConnect)
         if(layerNum == 1)
@@ -20,7 +22,7 @@ while(layerNum < net.numLayers)
         end
         myBNS.numLayers = 1; % Single-layer NN
         myBNS.layers{1}.size = 1; % One node
-        myBNS.biasConnect = [1]; % The layer has a bias.
+        myBNS.biasConnect = 1; % The layer has a bias.
         myBNS.inputConnect = ones(1,1); % connect all inputs to hidden layer.
         myBNS.layerConnect = false; % There is no weight coming from layer 1 to layer 1.
         myBNS.outputConnect = true; % there is an output layer.
@@ -35,7 +37,7 @@ while(layerNum < net.numLayers)
 
     
         % Perform Transformation Algorithm
-        [negVec, w] = positiveForm(myBNS.IW{1}) % Obtain positive form of weights and negation vector
+        [negVec, w] = positiveForm(myBNS.IW{1}); % Obtain positive form of weights and negation vector
         [w, I] = sort(w, 'descend'); % Sort weights in descending order
         negVec = negVec(I); % Sort negation vector the same way.
     
@@ -65,26 +67,46 @@ while(layerNum < net.numLayers)
 
         infIndex = size(lattice, 1) - 1;
         subtractor = 1;
+        secondSearch = false;
+        prevLayerNum = '-1';
         while(size(lattice, 1) - infIndex < size(lattice, 1))
             infimum = lattice(infIndex, :);
             inputVec(I) = infimum(2:end);
             infResult = myBNS(transpose(inputVec));
-            if(infResult > 0 && subtractor > 2)
+            if(infResult >= 0 && subtractor > 2)
                 infIndex = infIndex + max(1, (subtractor / 2));
                 subtractor = 1;
-            elseif (infResult > 0) 
-                prevLayerNum = infimum(1);
+            elseif (infResult >= 0) 
+                if(secondSearch == false)
+                    prevLayerNum = infimum(1);
+                end
+                firstLyrMax = sum(lattice(:,1) == prevLayerNum);
+                firstLyrCt = 0;
                 while(infIndex >= 1)
                     infimum = lattice(infIndex, :);
-                    if(abs(prevLayerNum - infimum(1)) > 1)
+                    if(prevLayerNum == infimum(1))
+                        firstLyrCt = firstLyrCt + 1;
+                    elseif(abs(prevLayerNum - infimum(1)) == 1 && firstLyrMax - firstLyrCt + prevLayerNum - max(lattice(:,1) + 1) >= 0)
+                        % does this rule satisfy?
+                        inputVec(I) = infimum(2:end);
+                        infResult = myBNS(transpose(inputVec));
+                        if(infResult<0)
+                            secondSearch = true;
+                            subtractor = 1;
+                            break;
+                        end
+                    else
+                        secondSearch = false;
                         break;
                     end
                     inputVec(I) = infimum(2:end);
                     vecMask(I) = mask(infIndex, 2:end);
-                    ruleSet = writeRule(maxColumns, nodeNum, layerNum, inputVec, vecMask, ruleSet);
+                    ruleSet = writeRule(maxColumns, inputVec, vecMask, ruleSet);
                     infIndex = infIndex - 1;
                 end
-                break;
+                if(secondSearch == false)
+                    break;
+                end
             end
             infIndex = infIndex - subtractor;
             subtractor = subtractor * 2;
@@ -100,13 +122,13 @@ while(layerNum < net.numLayers)
         T2 = [T2 array2table(ruleSet)];
         T2.Properties.VariableNames = T.Properties.VariableNames;
         T = [T;T2];
-        nodeNum = nodeNum + 1;
+        nodeNum = nodeNum + 1
     end
-    layerNum = layerNum + 1;
-    nodeNum = 1;
+    layerNum = layerNum + 1
+    nodeNum = 1
 end
 % Remove duplicate rules 
-T = unique(T);
+T = unique(T, 'stable');
 % write rules to file
 numRows = 1;
 i = 1;
@@ -121,37 +143,24 @@ end
 % Done
 
 
-function [maxCols] = getMaxColumns(network)
-    maxCols = 0;
-    layer = 1;
-    while(layer < network.numLayers)
-        if(maxCols < network.layers{layer}.size)
-            maxCols = network.layers{layer}.size;
-        end
-        layer = layer + 1;
-    end
-end
 
-
-function [ruleSet] = writeRule(rowLength, outputIndex, layerNum, vect, vecMask, rules)
-    inputs = "";
+function [ruleSet] = writeRule(rowLength, vect, vecMask, rules)
+    %inputs = "";
     i = 1;
     vars = zeros(1, rowLength);
     while(i <= size(vect, 2))
         if(vecMask(i) == 1)
             if(vect(i) == 1)
                 vars(i) = 1;
-                inputs = inputs + ", i" + i;
+                %inputs = inputs + ", i" + i;
             else
                 vars(i) = -1;
-                inputs = inputs + ", ~i" + i;
+                %inputs = inputs + ", ~i" + i;  
             end
-        else
-            vars(i) = 0;
         end
         i = i + 1;
     end
-    ruleSet = [rules; [vars]];
+    ruleSet = [rules; vars];
     %disp("h^" + layerNum + "_" + outputIndex + " <- " + inputs);
 end
 

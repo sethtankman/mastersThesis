@@ -1,0 +1,28 @@
+addpath(genpath('~/WORK/projects/DeepSymbolic/code/'));
+
+pos_data = [1 1 0;
+            1 0 1;
+            0 1 1;
+            0 0 0]';
+
+
+ned_data = [1 1 0;
+            1 0 1;
+            0 1 1;
+            0 0 0]';
+
+conf.hNum = 4;
+conf.eNum = 10000;
+conf.bNum = 0;
+conf.sNum = 0;
+conf.gNum = 1;
+conf.params = [0.3 0 0 0];
+
+conf.use_vis_bias = 0;
+conf.prediction = 0;
+conf.infer_type = 'stochastic';
+
+model = binary_rbm(conf,pos_data);
+model.W
+model.visB
+model.hidB

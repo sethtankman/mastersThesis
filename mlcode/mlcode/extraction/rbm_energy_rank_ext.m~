@@ -1,0 +1,17 @@
+function R = bin_rbm_energy_search_ext(model,conf)
+[visNum,hidNum] = size(model.W)
+R.c = []
+R.r = []
+for hinx=1:hidNum
+    r = energy_search(model.W(:,hinx),model.hidB(hinx))
+    R.c = [R.c,r.c] % Check the arrangement later
+    R.r = [R.r,r.r] % Check the arrangement later
+end
+end
+
+function r = energy_search(w,b)
+% TODO
+    r.c = [1]
+    r.r = sign(w)
+    return r
+end

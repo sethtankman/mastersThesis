@@ -1,0 +1,24 @@
+clear all;
+addpath(genpath('/home/tra161/WORK/projects/DeepSymbolic/code'));
+% Load data
+data = [0,0,0;
+        0,1,1;
+        1,0,1;
+        1,1,0]';
+
+trn_dat = data(1:end-1,:);
+trn_lab = data(end,:);
+vld_dat = trn_dat;
+vld_lab = trn_lab;
+
+conf.hNum   = 4;
+conf.sNum   = 0;
+conf.bNum   = 0;
+conf.eNum   = 1000;
+conf.params =  [0.1,0.1,0,0];
+
+binary_rbm(conf,trn_dat,trn_lab,vld_dat,vld_lab);
+
+
+
+

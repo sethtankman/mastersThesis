@@ -1,0 +1,26 @@
+pred_h_num = 10; % number of hidden unit fr each predicate
+pred_c_num = 10; % number of hidden unit for clauses
+
+x_v = []; % visible indices for variables
+x_p = []; % visible indices for predicates
+h_p = []; % hidden indices  for predicates
+h_c = []; % hidden indices for clauses
+
+
+pred_list = {'wife', 'husband','mother', 'father',...
+             'daughter','son', 'sister', 'brother',...
+             'aunt','uncle','niece','nephew'};
+
+%% load data
+
+%% construct model's structure
+x_v = 
+
+%% learning
+model = pred_eblm(conf,model,data);
+
+%% reasoning
+
+
+
+

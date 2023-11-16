@@ -1,0 +1,2 @@
+function ttable = generate_truth_table()
+end

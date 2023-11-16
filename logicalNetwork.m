@@ -1,19 +1,23 @@
-T = readtable("small.xlsx");
-load('DT_Diagnosis.mat','net'); % NAMAC 
+T = readtable("confidenceRules1.csv");
+% load('DT_Diagnosis.mat','net'); % NAMAC 
+load('simp.mat', 'net'); % simple example
+trainData = 
 
 % TODO: Add user selection of tables here.
 
-% TODO: Construct new neural network based on rules.
+% Construct new neural network based on rules.
 myRBM = network;
 myRBM.numInputs = net.numInputs;
 myRBM.inputs{1}.size = net.inputs{1}.size;
 myRBM.numLayers = net.numLayers;
+net.numLayers
 for layer = 1:net.numLayers
     myRBM.layers{layer}.size = net.layers{layer}.size;
     myRBM.layers{layer}.transferFcn =  net.layers{layer}.transferFcn;
 end
-myRBM.biasConnect = [1;1;1;1]; % all layers have a bias.
-myRBM.inputConnect = [1;0;0;0]; % connect input to the first hidden layer.
+myRBM.biasConnect = ones(net.numLayers, 1); % all layers have a bias.
+myRBM.inputConnect = zeros(net.numLayers, 1);
+myRBM.inputConnect(1) = 1; % connect input to the first hidden layer.
 myRBM.layerConnect = net.layerConnect;
 myRBM.outputConnect = net.outputConnect;
 
@@ -26,17 +30,18 @@ prevNode = 0;
 weights = num2cell(zeros(net.numLayers));
 nodeTotal = [];
 weightMatrix = zeros(net.layers{1}.size,net.inputs{1}.size);
-pat = "_" + digitsPattern;
+pat = "_" + digitsPattern; % Matlab's form of REGEX
 
 % For each row of the table
-for row = 2:rows
+for row = 1:rows
     rule = T(row,:);
-    layer = str2num(cell2mat(extract(rule{1, 1}, 1)));
+    layer = str2num(cell2mat(extract(rule{1, 1}, 3)));
     if(layer ~= prevLayer)
         if(prevLayer ~= 0)
             % Set all weights for each layer.
             weights{prevLayer+1, prevLayer} = weightMatrix
             weightMatrix = zeros(net.layers{layer}.size,net.layers{layer-1}.size);
+            prevNode = 0;
         end
         prevLayer = layer;
     end
@@ -45,13 +50,12 @@ for row = 2:rows
     if(prevNode ~= node)
         if(prevNode ~= 0)
             % Set the value of the connection weights
-            weightMatrix(prevNode, :);
-            nodeTotal(1,1:size(weightMatrix,2));
             weightMatrix(prevNode, :) = nodeTotal(1,1:size(weightMatrix,2));
         end
         nodeTotal = zeros(1, net.layers{layer}.size);
     end
-    nodeTotal = nodeTotal + table2array(T(row, 2:end));
+    myArr = table2array(T(row, 2:net.layers{layer}.size+2));
+    nodeTotal = nodeTotal + table2array(T(row, 2:net.layers{layer}.size+2))
     prevNode = node;
 % end for
 end

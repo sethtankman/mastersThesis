@@ -1,0 +1,5 @@
+h1_1 :- not a.
+h1_1 :- not a, b.
+h1_1 :- not a, c.
+h1_1 :- b, c.
+h1_1 :- not a, b, c.
