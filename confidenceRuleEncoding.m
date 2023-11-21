@@ -2,6 +2,7 @@ clear;
 
 % load models and data
 T = readtable("confidenceRules1.csv");
+trainData = readmatrix("trainingData.xls");
 % load('DT_Diagnosis.mat','net'); % NAMAC 
 load('simp.mat', 'net'); % simple example
 
@@ -30,7 +31,6 @@ myRBM.outputConnect = net.outputConnect;
 %myRBM.b = net.b; % TODO: Doesn't account for hidden nodes.
 
 %Initializations
-trainData = rand(3,SZ);
 prevLayer = 0;
 for row = 1:size(T, 1)
     layer = str2num(cell2mat(extract(T{row, 1}, 3)));
@@ -49,6 +49,7 @@ for row = 1:size(T, 1)
 
     cv = layerRules{:,2};
     Wrules = repmat(layerRules{:,2},1,net.inputs{1}.size).*layerRules{:,3:end}; 
+    hidBr = -sum(layerRules{:,2:end}(layerRules{:,2:end}>0))+0.5; %%% check this one
     %weightCells = num2cell(zeros(net.numLayers));
     %weightMatrix = zeros(net.layers{1}.size,net.inputs{1}.size);
     %matRow = 1;
@@ -67,7 +68,7 @@ for row = 1:size(T, 1)
     DVB = zeros(size(visB));
     DHBa = zeros(size(hidBa));
     
-    lr = [0.2,0.4,0.6];
+    lr = 0.2
     
     running = 1;
     epoch = 0;
@@ -81,40 +82,54 @@ for row = 1:size(T, 1)
     stop_count = 0;
     lr_decay_count= 0;
     
+    % resetting rules to 1,0,or -1 
+    Wrules = bsxfun(@rdivide, Wrules,cv);
+
     while running && epoch < eNum
         rec_err = 0;
         epoch = epoch + 1;
-        for b = 1:SZ
-            x = trainData(:,(b-1)*SZ + 1:min(b*SZ,SZ)); % snum = SZ, based on dna_exp>prop_eblm
-    
-            W = [Wadded,Wrules']; %%% merging weights
-            hidB = [hidBa;net.b{layer,1}]; % Should the bias be multiplied by the confidence?
-            %% soft infer
-            hidIp  = bsxfun(@plus,W'*x,hidB);
-            [hidP,hidPs]  = infer(hidIp,'stochastic');
-            hidNs = hidPs;
-    
-            gNum = 1; % Set like this because dna_exp was.
-            for g=1:gNum
-                visN  = bsxfun(@plus,W*hidNs,visB);
-                [visN,visNs] = infer(visN,'stochastic');
+        x = trainData(1:3,(1-1)*SZ + 1:min(1*SZ,SZ)); % b = 1, bNum = 1, snum = SZ, based on dna_exp>prop_eblm
 
-                hidIn  = bsxfun(@plus,W'*visNs,hidB);
-                [hidN,hidNs] = infer(hidIn,'stochastic');
-            end
-            rec_err = rec_err + sqrt(sum(mean(visN - x).^2));
-            %a = a + mean(visNs(end,:) == x(end,:));
-            
-            diffa = (x*hidP(1:hidNuma,:)' - visNs*hidN(1:hidNuma,:)')/SZ;
-            DWa = lr*(diffa - 0*Wadded) + 0*DWa; % ct = 0, mm = 0
-            Wadded = Wadded + DWa; % Wa = Wadded
-            DHBa = lr*mean(hidP(1:hidNuma,:) - hidN(1:hidNuma,:),2); % aNum = hidNuma
-            hidBa = hidBa + DHBa;
-            %% update cv
-            DCV =lr* mean(hidIp(hidNuma+1:end,:).*hidP(hidNuma+1:end,:) - hidIn(hidNuma+1:end,:).*hidN(hidNuma+1:end,:),2);
-    
-            cv = cv + DCV';
-        end
+        W = [Wadded,bsxfun(@times,Wrules,cv)]; %%% merging weights [Wa,bsxfun(@times,Wr,cv)]
+        hidB = [hidBa;hidBr.*cv]; % Should the bias be multiplied by the confidence?
+        %% soft infer
+        mvar = W'*x;
+        hidIp  = bsxfun(@plus,W'*x,hidB);
+        [hidP,hidPs]  = infer(hidIp,'stochastic');
+        hidNs = hidPs;% hidNs = random samples from hidIp
+
+        % since gNum = 1, we forgo the following section's for loop
+        % We will also forgo the next section entirely, since it handles
+        % bidirectional neural nets.
+        %% gNum loop
+        % visN  = bsxfun(@plus,W*hidNs,visB); % hidNs = output of activation function
+        % [visN,visNs] = infer(visN,'stochastic'); % visN = output of activation function on the visible layer.
+
+        % hidIn  = bsxfun(@plus,W'*visNs,hidB);
+        % [hidN,hidNs] = infer(hidIn,'stochastic');
+        % rec_err = rec_err + sqrt(sum(mean(visN - x).^2));
+        %a = a + mean(visNs(end,:) == x(end,:));
+        
+        %% update values
+        % Loss = inputs * hidden_activations -
+        % random_samples_from_visual_activations (x') * hidden_activations_the_second_time (hidP') /
+        % size
+        % diffa = (x*hidP(1:hidNuma,:)' - visNs*hidN(1:hidNuma,:)')/SZ; % TODO: Substitute visNs for actuals
+        % Loss = actuals - activations.
+        actuals = trainData(4,:); % PROBLEM!  comparing activation values for hidden nodes with activation value for entire network!!!
+        % TODO: Probably have to do repmat later on for multiple added hidden units
+        diffa = actuals - hidP(1:hidNuma,:); 
+        DWa = lr*(diffa - 0*Wadded) + 0*DWa; % ct = 0, mm = 0
+        Wadded = Wadded + DWa; % Wa = Wadded
+        DHBa = lr*mean(actuals - hidP(1:hidNuma,:),2); % aNum = hidNuma
+        hidBa = hidBa + DHBa; % DHBa should be a single value, is a 1x3 vector
+        % pre_activation.*activations - pre_activation'.*activations'
+        %DCV =lr* mean(hidIp(hidNuma+1:end,:).*hidP(hidNuma+1:end,:) - hidIn(hidNuma+1:end,:).*hidN(hidNuma+1:end,:),2);
+        % actuals - 
+        mvar =repmat(actuals,size(hidP,1)-1,1);
+        mvar2 = hidP(hidNuma+1:end,:);
+        DCV = lr*mean(repmat(actuals,size(hidP,1)-1,1) - hidP(hidNuma+1:end,:),2)
+        cv = cv + DCV;
     end
 end
 
