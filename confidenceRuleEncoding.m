@@ -7,10 +7,11 @@ trainData = readmatrix("trainingData.xls");
 load('simp.mat', 'net'); % simple example
 
 % Hyperparameters
-top_x = 2;
-hidNuma = 1;
-eNum = 10;
-SZ = 50;
+top_x = 2; % TODO: What's this?
+hidNuma = 1; % number of units added to the hidden layer
+eNum = 10; % Number of epochs
+SZ = 50; % Number of examples in the training data
+lr = 0.2;
 
 
 % Construct new neural network based on rules.
@@ -31,44 +32,85 @@ myRBM.outputConnect = net.outputConnect;
 %myRBM.b = net.b; % TODO: Doesn't account for hidden nodes.
 
 %Initializations
-prevLayer = 0;
-for row = 1:size(T, 1)
+allLayerRules = dictionary;
+allX = dictionary;
+allW = dictionary;
+allB = dictionary;
+row = 1;
+
+% Build New Network and Forward Propagation
+x = trainData(1:3,1:SZ); % b = 1, bNum = 1, snum = SZ, based on dna_exp>prop_eblm
+allX(1) = {x};
+while row <= size(T, 1)
     layer = str2num(cell2mat(extract(T{row, 1}, 3)));
-    if(layer ~= prevLayer)
-        if(prevLayer ~= 0)
-            weightCells{prevLayer+1, prevLayer} = weightMatrix;
-            if(prevLayer == 1)
-                %myRBM.IW{1,1} = weightMatrix; % myRBM.IW is a 2x1 cell matrix with (1,1) = a 3x3 weight matrix
-            end
-            weightMatrix = zeros(net.layers{layer}.size,net.layers{layer-1}.size);
-            matRow = 1;
-        end
-        prevLayer = layer;
-    end
     layerRules = T(str2num(cell2mat(extract(T{:,1}, 3))) == layer,:);
 
     cv = layerRules{:,2};
-    Wrules = repmat(layerRules{:,2},1,net.inputs{1}.size).*layerRules{:,3:end}; 
-    hidBr = -sum(layerRules{:,2:end}(layerRules{:,2:end}>0))+0.5; %%% check this one
+    Wrules = repmat(layerRules{:,2},1,size(layerRules,1)).*layerRules{:,3:end}; % Weights from Rules
+    %hidBr = -sum(layerRules{:,2:end}(layerRules{:,2:end}>0))+0.5; %%% check this one % TODO: Copied. explain me.
+    allLayerRules(layer) = {Wrules};
+    hidBr = net.b{layer};
     %weightCells = num2cell(zeros(net.numLayers));
     %weightMatrix = zeros(net.layers{1}.size,net.inputs{1}.size);
     %matRow = 1;
-    visNum = 0;
     if(layer == 1)
         visNum = net.inputs{1}.size;
     else
-        visNum = net.layers{layer-1}.size;
+        visNum = net.layers{layer-1}.size+hidNuma;
+        Wrules = [Wrules,1/max(visNum,hidNuma)*randn(1,hidNuma)];
     end
-    Wadded = (1/max(visNum,hidNuma))*randn(visNum,hidNuma);
-    visB = zeros(visNum,1);
-    hidBa = zeros(hidNuma,1);
-    
+    Wadded = (1/max(visNum,hidNuma))*randn(hidNuma,visNum); % Randomize starting weights to new nodes
+    hidBa = zeros(hidNuma,1); % Set initial bias to zero for added nodes
+    if(net.numLayers == layer)
+        Wadded = []; % Randomize weights for last layer (no new nodes added, just new weights)
+        hidBa = []; % We do not add biases if we are not adding nodes.
+    end
+    % visB = zeros(visNum,1);
+    W = [Wrules; Wadded];
+    allW(layer) = {W};
+    hidB = [hidBr;hidBa];
+    allB(layer) = {hidB};
+    x = activation(myRBM.layers{layer}.transferFcn, bsxfun(@plus,W*x,hidB));
+    allX(layer+1) = {x}; 
+    row = row + size(layerRules, 1);
+end
+actuals = trainData(4,:);
+
+for epoch = 1:eNum
+    mse = mean((actuals - x).^2);
+    for exampleNum = 1:SZ
+        DWa = actuals - x;
+        err = DWa(exampleNum);
+        mse = mean((actuals - x).^2);
+        
+        % BackPropagation
+        for lnum = layer:-1:1
+            layerW = allW{lnum}; % TODO: Debugging purposes only- Erase me.
+            Wr = zeros(size(allW{lnum}));
+            Wr(1:size(allLayerRules{lnum},1),1:size(allLayerRules{lnum},2)) = allLayerRules{lnum};
+            Wadded = allW{lnum} - Wr;
+            err = Wadded.*err'; % TODO: f'(z) = 1 only when f(z) = z.
+            %loss = mean(lr*allX{lnum}.*DWa, 2);
+            X = allX{lnum}(:, exampleNum);
+            rhs = lr*X'.*err;
+            allW{lnum} = allW{lnum} - lr*allX{lnum}(:,exampleNum)'.*err; % TODO: Should we update by the mean or one sample at a time?
+            layerW = allW{lnum}; % TODO: Debugging purposes only- Erase me.
+        end
+        
+        x = trainData(1:3,1:SZ); % b = 1, bNum = 1, snum = SZ, based on dna_exp>prop_eblm
+        for layer = 1:size(allW.entries, 1)
+            W = allW{layer};
+            hidB = allB{layer};
+            x = activation(myRBM.layers{layer}.transferFcn, bsxfun(@plus,W*x,hidB));
+        end
+    end
+end
+
+%{
     DCV = zeros(size(T));
     DWa = zeros(size(Wadded));
     DVB = zeros(size(visB));
     DHBa = zeros(size(hidBa));
-    
-    lr = 0.2
     
     running = 1;
     epoch = 0;
@@ -91,9 +133,8 @@ for row = 1:size(T, 1)
         x = trainData(1:3,(1-1)*SZ + 1:min(1*SZ,SZ)); % b = 1, bNum = 1, snum = SZ, based on dna_exp>prop_eblm
 
         W = [Wadded,bsxfun(@times,Wrules,cv)]; %%% merging weights [Wa,bsxfun(@times,Wr,cv)]
-        hidB = [hidBa;hidBr.*cv]; % Should the bias be multiplied by the confidence?
+        hidB = [hidBa;hidBr.*cv]; % TODO: Should the bias be multiplied by the confidence?
         %% soft infer
-        mvar = W'*x;
         hidIp  = bsxfun(@plus,W'*x,hidB);
         [hidP,hidPs]  = infer(hidIp,'stochastic');
         hidNs = hidPs;% hidNs = random samples from hidIp
@@ -118,6 +159,8 @@ for row = 1:size(T, 1)
         % Loss = actuals - activations.
         actuals = trainData(4,:); % PROBLEM!  comparing activation values for hidden nodes with activation value for entire network!!!
         % TODO: Probably have to do repmat later on for multiple added hidden units
+        % W = W - lr * J'(W)
+        % DW_0 = w . DW_1 . f'(z)
         diffa = actuals - hidP(1:hidNuma,:); 
         DWa = lr*(diffa - 0*Wadded) + 0*DWa; % ct = 0, mm = 0
         Wadded = Wadded + DWa; % Wa = Wadded
@@ -155,3 +198,4 @@ end
 %myRBM.LW{2,1} = weightMatrix;
 
 save("confidenceNetwork.mat", "myRBM")
+%}
