@@ -91,12 +91,13 @@ for epoch = 1:eNum
             Wadded = allW{lnum} - Wr;
             err = Wadded.*err'; % TODO: f'(z) = 1 only when f(z) = z.
             %loss = mean(lr*allX{lnum}.*DWa, 2);
-            X = allX{lnum}(:, exampleNum);
-            rhs = lr*X'.*err;
-            allW{lnum} = allW{lnum} - lr*allX{lnum}(:,exampleNum)'.*err; % TODO: Should we update by the mean or one sample at a time?
+            Z = allX{lnum}(:, exampleNum);
+            rhs = lr*Z'.*err; % TODO: Debugging only. Erase me.
+            allW{lnum} = allW{lnum} - lr*Z'.*err; % TODO: Should we update by the mean or one sample at a time?
             layerW = allW{lnum}; % TODO: Debugging purposes only- Erase me.
         end
         
+        %Forward propagation
         x = trainData(1:3,1:SZ); % b = 1, bNum = 1, snum = SZ, based on dna_exp>prop_eblm
         for layer = 1:size(allW.entries, 1)
             W = allW{layer};
