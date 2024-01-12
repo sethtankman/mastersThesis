@@ -1,7 +1,7 @@
-T = readtable("confidenceRules1.csv");
+confRules = readtable("confidenceRules1.csv");
 % load('DT_Diagnosis.mat','net'); % NAMAC 
 load('simp.mat', 'net'); % simple example
-trainData = 
+trainData = readmatrix("trainingData.xls");
 
 % TODO: Add user selection of tables here.
 
@@ -24,7 +24,7 @@ myRBM.outputConnect = net.outputConnect;
 % weight = net.LW
 
 % Initializations
-rows = size(T, 1);
+rows = size(confRules, 1);
 prevLayer = 0;
 prevNode = 0;
 weights = num2cell(zeros(net.numLayers));
@@ -34,7 +34,7 @@ pat = "_" + digitsPattern; % Matlab's form of REGEX
 
 % For each row of the table
 for row = 1:rows
-    rule = T(row,:);
+    rule = confRules(row,:);
     layer = str2num(cell2mat(extract(rule{1, 1}, 3)));
     if(layer ~= prevLayer)
         if(prevLayer ~= 0)
@@ -54,8 +54,8 @@ for row = 1:rows
         end
         nodeTotal = zeros(1, net.layers{layer}.size);
     end
-    myArr = table2array(T(row, 2:net.layers{layer}.size+2));
-    nodeTotal = nodeTotal + table2array(T(row, 2:net.layers{layer}.size+2))
+    myArr = table2array(confRules(row, 2:net.layers{layer}.size+2));
+    nodeTotal = nodeTotal + table2array(confRules(row, 2:net.layers{layer}.size+2))
     prevNode = node;
 % end for
 end

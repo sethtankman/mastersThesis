@@ -1,7 +1,7 @@
 clear;
 
 % load models and data
-T = readtable("confidenceRules1.csv");
+confRules = readtable("confidenceRules1.csv");
 trainData = readmatrix("trainingData.xls");
 % load('DT_Diagnosis.mat','net'); % NAMAC 
 load('simp.mat', 'net'); % simple example
@@ -41,9 +41,9 @@ row = 1;
 % Build New Network and Forward Propagation
 x = trainData(1:3,1:SZ); % b = 1, bNum = 1, snum = SZ, based on dna_exp>prop_eblm
 allX(1) = {x};
-while row <= size(T, 1)
-    layer = str2num(cell2mat(extract(T{row, 1}, 3)));
-    layerRules = T(str2num(cell2mat(extract(T{:,1}, 3))) == layer,:);
+while row <= size(confRules, 1)
+    layer = str2num(cell2mat(extract(confRules{row, 1}, 3)));
+    layerRules = confRules(str2num(cell2mat(extract(confRules{:,1}, 3))) == layer,:);
 
     cv = layerRules{:,2};
     Wrules = repmat(layerRules{:,2},1,size(layerRules,1)).*layerRules{:,3:end}; % Weights from Rules

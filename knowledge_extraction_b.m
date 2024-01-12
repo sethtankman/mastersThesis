@@ -1,5 +1,5 @@
-%load('DT_Diagnosis.mat','net'); % NAMAC 
-load('simp.mat', 'net'); % simple NN
+load('DT_Diagnosis.mat','net'); % NAMAC 
+%load('simp.mat', 'net'); % simple NN
 
 
 layerNum = 1
