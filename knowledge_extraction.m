@@ -35,20 +35,22 @@ while(layerNum <= net.numLayers) %net.numLayers
             myBNS = setwb(myBNS, [net.b{layerNum}(nodeNum,1),net.LW{layerNum, layerNum-1}(nodeNum,:)]);
         end
 
-    
+        %% Optimized Knowledge Extraction for Regular Networks
         % Perform Transformation Algorithm
         [negVec, w] = positiveForm(myBNS.IW{1}); % Obtain positive form of weights and negation vector
         [w, I] = sort(w, 'descend'); % Sort weights in descending order
         negVec = negVec(I); % Sort negation vector the same way.
     
-        % Produce Rules
+        % Find Infimum and Supremum
         ruleSet = [];
         [lattice, mask] = getLattice(negVec);
         supremum = lattice(1, :);
         infimum = lattice(size(lattice, 1),:);
+
+        % Query Infimum
         inputVec(I) = infimum(2:end);
         infResult = myBNS(transpose(inputVec));
-        if(infResult >= 0)
+        if(infResult >= 0) % TODO: Should be > 0
             disp("h^" + layerNum + "_" + nodeNum + " <-");
             T2 = table;
             T2.outPut = [layerNum + "_" + nodeNum];
@@ -58,13 +60,16 @@ while(layerNum <= net.numLayers) %net.numLayers
             nodeNum = nodeNum + 1;
             continue;
         end
+
+        % Query Supremum
         inputVec(I) = supremum(2:end);
         supResult = myBNS(transpose(inputVec));
-        if(supResult < 0)
+        if(supResult < 0) % TODO: Should be <= 0
             nodeNum = nodeNum + 1;
             continue;
         end
 
+        % Perform recursive Exponential Search
         infIndex = size(lattice, 1) - 1;
         subtractor = 1;
         secondSearch = false;
@@ -73,10 +78,12 @@ while(layerNum <= net.numLayers) %net.numLayers
             infimum = lattice(infIndex, :);
             inputVec(I) = infimum(2:end);
             infResult = myBNS(transpose(inputVec));
-            if(infResult >= 0 && subtractor > 2)
+            if(infResult >= 0 && subtractor > 2) % TODO: Should be infResult > 0
                 infIndex = infIndex + max(1, (subtractor / 2));
                 subtractor = 1;
-            elseif (infResult >= 0) 
+            elseif (infResult >= 0) % TODO: Should be infResult > 0
+
+                % Add rules according to the Minimal Antecedents Algorithm 
                 if(secondSearch == false)
                     prevLayerNum = infimum(1);
                 end
@@ -127,8 +134,10 @@ while(layerNum <= net.numLayers) %net.numLayers
     layerNum = layerNum + 1
     nodeNum = 1
 end
+
 % Remove duplicate rules 
 T = unique(T, 'stable');
+
 % write rules to file
 numRows = 1;
 i = 1;
