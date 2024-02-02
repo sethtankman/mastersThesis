@@ -1,7 +1,7 @@
 clear;
 
 % Set this to appropriate number before running
-numFiles = 3;
+numFiles = 1;
 T = table;
 for i = 1:numFiles
     filename = "rawRules"+i+".csv";

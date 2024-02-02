@@ -2,11 +2,11 @@
 clear;
 
 SZ = 3; % Set this to the number of inputs.
-numCSVs = 2; % Set this to the number of CSV files to be read into one table
-T = table;
+numCSVs = 1; % Set this to the number of CSV files to be read into one table
 
+T = table;
 for i = 1:numCSVs
-    Tchunk = readtable("reducedRules"+i+".xlsx");
+    Tchunk = readtable("reducedRules"+i+".csv");
     T = [T; Tchunk];
 end
 
@@ -33,15 +33,15 @@ for j = 1:size(allInputs, 1)
     i = 1;
     nextX = zeros(size(T{1, 2:end})) - 1;
     layer = '0';
-    while i < size(T, 1)
+    while i <= size(T, 1)
         layerRules = T(strcmp(T{:,1}, T{i,1}), 2:end);
         head = char(T{i, 1});
-        if(layer ~= head(2) && layer ~= '0')
+        if(layer ~= head(1) && layer ~= '0')
             x = nextX;
             nextX = zeros(1,size(layerRules, 2)) - 1;
         end 
-        layer = head(2);
-        insertIndex = str2num(head(4:end));
+        layer = head(1);
+        insertIndex = str2num(head(3:end));
         if(size(x, 2) < size(layerRules, 2))
             x(size(layerRules, 2)) = 0;
         end

@@ -37,6 +37,10 @@ while(layerNum <= net.numLayers) %net.numLayers
 
         %% Optimized Knowledge Extraction for Regular Networks
         % Perform Transformation Algorithm
+        if size(myBNS.IW{1}, 2) > 5
+            bnsW = myBNS.IW{1,1};
+        end
+        
         [negVec, w] = positiveForm(myBNS.IW{1}); % Obtain positive form of weights and negation vector
         [w, I] = sort(w, 'descend'); % Sort weights in descending order
         negVec = negVec(I); % Sort negation vector the same way.
@@ -44,11 +48,36 @@ while(layerNum <= net.numLayers) %net.numLayers
         % Find Infimum and Supremum
         ruleSet = [];
         [lattice, mask] = getLattice(negVec);
+        lattice(:,I+1) = lattice(:,2:end); % Sort lattice back to BNS ordering
+        mask(:,I+1) = mask(:,2:end);
+
+        % Test that lattice is in ascending order
+        prevActivation = 2;
+        currLayer = -1;
+        for i = 1:size(lattice, 1)
+            inputVec = lattice(i,:);
+            if(currLayer ~= inputVec(1))
+                currLayer = inputVec(1);
+                prevActivation = 2;
+            end
+            inputVec = inputVec(2:end);
+            currAct = myBNS(transpose(inputVec));
+            bnsW = myBNS.IW{1,1};
+            % We expect each layer to be in descending order, so each
+            % previous activation should be greater than or equal to the
+            % current one.
+            if prevActivation + 0.0001 < currAct % MATLAB is doing this weird thing where it says 1 is less than 1.
+                disp("UH OH! " + prevActivation + " < " + currAct);
+            end
+            prevActivation = currAct;
+        end
+
+
         supremum = lattice(1, :);
         infimum = lattice(size(lattice, 1),:);
 
         % Query Infimum
-        inputVec(I) = infimum(2:end);
+        inputVec = infimum(2:end);
         infResult = myBNS(transpose(inputVec));
         if(infResult >= 0) % TODO: Should be > 0
             disp("h^" + layerNum + "_" + nodeNum + " <-");
@@ -62,73 +91,53 @@ while(layerNum <= net.numLayers) %net.numLayers
         end
 
         % Query Supremum
-        inputVec(I) = supremum(2:end);
+        inputVec = supremum(2:end);
         supResult = myBNS(transpose(inputVec));
         if(supResult < 0) % TODO: Should be <= 0
             nodeNum = nodeNum + 1;
             continue;
         end
 
-        % Perform recursive Exponential Search
-        infIndex = size(lattice, 1) - 1;
-        subtractor = 1;
-        secondSearch = false;
-        prevLayerNum = '-1';
-        while(size(lattice, 1) - infIndex < size(lattice, 1))
-            infimum = lattice(infIndex, :);
-            inputVec(I) = infimum(2:end);
-            infResult = myBNS(transpose(inputVec));
-            if(infResult >= 0 && subtractor > 2) % TODO: Should be infResult > 0
-                infIndex = infIndex + max(1, (subtractor / 2));
-                subtractor = 1;
-            elseif (infResult >= 0) % TODO: Should be infResult > 0
-
-                % Add rules according to the Minimal Antecedents Algorithm 
-                if(secondSearch == false)
-                    prevLayerNum = infimum(1);
-                end
-                firstLyrMax = sum(lattice(:,1) == prevLayerNum);
-                firstLyrCt = 0;
-                while(infIndex >= 1)
-                    infimum = lattice(infIndex, :);
-                    if(prevLayerNum == infimum(1))
-                        firstLyrCt = firstLyrCt + 1;
-                    elseif(abs(prevLayerNum - infimum(1)) == 1 && firstLyrMax - firstLyrCt + prevLayerNum - max(lattice(:,1) + 1) >= 0)
-                        % does this rule satisfy?
-                        inputVec(I) = infimum(2:end);
-                        infResult = myBNS(transpose(inputVec));
-                        if(infResult<0)
-                            secondSearch = true;
-                            subtractor = 1;
-                            break;
-                        end
-                    else
-                        secondSearch = false;
-                        break;
+        % Perform Binary Search on each layer of the lattice.
+        for LL = size(lattice, 2) - 1:-1:1
+            layerStart = find(lattice(:,1) == LL, 1, 'first');
+            layerInputs = lattice(lattice(:,1) == LL, 2:end);
+            lhs = 1;
+            rhs = size(layerInputs, 1);
+            while lhs <= rhs
+                m = ceil(lhs + (rhs - lhs) / 2);
+                inputVec = layerInputs(m,:);
+                inputVec = inputVec(I);
+                activationVal = myBNS(transpose(inputVec));
+                if (rhs == lhs && activationVal > 0)
+                    % Write all rules above and including this in the layer
+                    while(m >= 1)
+                        inputVec = layerInputs(m,:);
+                        inputVec = inputVec(I);
+                        activationVal = myBNS(transpose(inputVec)); % NOTE: Comment out if not verifying
+                        vecMask = mask(layerStart + m - 1, 2:end);
+                        vecMask = vecMask(I);
+                        ruleSet = writeRule(maxColumns, inputVec, vecMask, ruleSet);
+                        m = m - 1;
                     end
-                    inputVec(I) = infimum(2:end);
-                    vecMask(I) = mask(infIndex, 2:end);
-                    ruleSet = writeRule(maxColumns, inputVec, vecMask, ruleSet);
-                    infIndex = infIndex - 1;
+
+                    lhs = lhs + 1;
+                elseif (activationVal <= 0)
+                    rhs = m - 1;
+                else
+                    lhs = m;
                 end
-                if(secondSearch == false)
-                    break;
-                end
-            end
-            infIndex = infIndex - subtractor;
-            subtractor = subtractor * 2;
-            if(infIndex <= 0 && subtractor > 2)
-                infIndex = infIndex + max(1, (subtractor / 2));
-                subtractor = 1;
             end
         end
-
-        outputNodes = repmat(layerNum + "_" + nodeNum, size(ruleSet, 1), 1);
-        T2 = table;
-        T2.outPut = outputNodes;
-        T2 = [T2 array2table(ruleSet)];
-        T2.Properties.VariableNames = T.Properties.VariableNames;
-        T = [T;T2];
+        
+        if(size(ruleSet, 1) > 0)
+            outputNodes = repmat(layerNum + "_" + nodeNum, size(ruleSet, 1), 1);
+            T2 = table;
+            T2.outPut = outputNodes;
+            T2 = [T2 array2table(ruleSet)];
+            T2.Properties.VariableNames = T.Properties.VariableNames;
+            T = [T;T2];
+        end
         nodeNum = nodeNum + 1
     end
     layerNum = layerNum + 1
@@ -174,7 +183,7 @@ function [ruleSet] = writeRule(rowLength, vect, vecMask, rules)
 end
 
 % Calculates the positive form of a set of weights, returns the negation
-% vector showing which values were flipped. 
+% vector showing which values were flipped and the resulting weight vector. 
 function [negVec, w] = positiveForm(weights)
     negVec = ones(1,size(weights, 2));
     for index = 1:size(weights,2)
@@ -186,10 +195,12 @@ function [negVec, w] = positiveForm(weights)
     w = weights;
 end
 
-% Given a max vector, obtains the lattice of input vectors from greatest to
-% least.
+% Given a max vector (negVec), obtains the lattice of 
+% input vectors from greatest to least. Also returns a mask matrix which 
+% shows which values to mask when adding rules. (1 meaning show the rule, 
+% 0 meaning mask it)
 function [lattice, mask] = getLattice(negVec)
-    negVec(negVec == -1) = 0; % Set all -1 values to 0 since the min of all inputs is 0, not -1.
+    % negVec(negVec == -1) = 0; % Set all -1 values to 0 since the min of all inputs is 0, not -1.
     vecSize = size(negVec, 2);
     lattice = ones(2^(vecSize), vecSize+1); % Adding additional element to represent row number
     mask = lattice;
@@ -197,6 +208,10 @@ function [lattice, mask] = getLattice(negVec)
     i=2; % i: the number of the lattice we are computing
     markers = [vecSize];
     while(size(markers, 2) < vecSize)
+        % size(markers, 2) + 1 is the lattice row number
+        if(i >= 1170)
+            disp("DEBUG")
+        end
         lattice(i, :) = [size(markers, 2)+1 getLatticeEntry(markers, negVec)];
         mask(i,:) = [size(markers, 2)+1 getLatticeEntry(markers, ones(1, vecSize))];
         j = 1; % index of markers
@@ -227,8 +242,8 @@ function [entry] = getLatticeEntry(markers, negVec)
     i = 1;
     entry = negVec;
     while(i <= size(markers, 2))
-        entry(markers(i)) = 1 - entry(markers(i)); % toggle 0 or 1
-        % entry(markers(i)) = -1 * entry(markers(i)); % toggle +1 or -1
+        % entry(markers(i)) = 1 - entry(markers(i)); % toggle 0 or 1.
+        entry(markers(i)) = -1 * entry(markers(i)); % toggle +1 or -1
         i = i + 1;
     end
 end
