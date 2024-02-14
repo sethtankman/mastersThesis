@@ -2,7 +2,8 @@ clear;
 
 %% Manual Settings
 %load('DT_Diagnosis.mat','net'); % NAMAC 
-load('simp.mat', 'net'); % simple NN
+%load('simp.mat', 'net'); % simple NN
+load('mixed.mat', 'net');
 A_min = 0.1;
 %%
 
@@ -59,7 +60,7 @@ while(layerNum <= net.numLayers) %net.numLayers
         % Query Infimum
         inputVec = infimum(2:end);
         infResult = myBNS(transpose(inputVec));
-        if(infResult >= 0) % TODO: Should be > 0
+        if(infResult > 0)
             disp("h^" + layerNum + "_" + nodeNum + " <-");
             T2 = table;
             T2.outPut = [layerNum + "_" + nodeNum];
@@ -73,14 +74,14 @@ while(layerNum <= net.numLayers) %net.numLayers
         % Query Supremum
         inputVec = supremum(2:end);
         supResult = myBNS(transpose(inputVec));
-        if(supResult < 0) % TODO: Should be <= 0
+        if(supResult <= 0)
             nodeNum = nodeNum + 1;
             continue;
         end
 
         % Perform Linear Search on the lattice.
         infIndex = size(lattice, 1) - 1;
-        supIndex = 2;
+        supIndex = 1;
         while infIndex >= size(lattice, 1)/2 || supIndex <= size(lattice, 1)/2
             infimum = lattice(infIndex,:);
             inputVec = infimum(2:end);
@@ -135,7 +136,7 @@ function [ruleSet] = writeRule(rowLength, vect, rules)
     i = 1;
     vars = zeros(1, rowLength);
     while(i <= size(vect, 2))
-        if(vect(i) == 1)
+        if(vect(i) > 0)
             vars(i) = 1;
             %inputs = inputs + ", i" + i;
         else
@@ -167,7 +168,7 @@ end
 % 0 meaning mask it)
 function [lattice, mask] = getLattice(negVec, isInputLayer, A_min)
     if (~isInputLayer)
-        negVec(negVec == -1) = A_min; % Set all -1 values to 0 since the min of all inputs is 0, not -1.
+        negVec(negVec == 1) = A_min; % Set all 1 values to A_min for hidden to other layers.
     end
     vecSize = size(negVec, 2);
     lattice = ones(2^(vecSize), vecSize+1); % Adding additional element to represent row number
@@ -213,7 +214,11 @@ function [entry] = getLatticeEntry(markers, negVec, isInputLayer, A_min)
         end
     else
         while(i <= size(markers, 2))
-            entry(markers(i)) = 1 - entry(markers(i)) + A_min; % toggle A_min or 1.
+            if(entry(markers(i)) == -1) % toggle -1 or A_min for hidden to other layers
+                entry(markers(i)) = A_min; 
+            else 
+                entry(markers(i)) = -1;
+            end
             i = i + 1;
         end
     end
