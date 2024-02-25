@@ -8,16 +8,34 @@ net.IW{1,1}
 net.LW{2,1}
 net.b{1}
 net.b{2}
-view(net)
+%view(net)
 save("mixed.mat", "net")
 
 %% Expected Rules:
 % h1 <- a,b
-% h1 <- a,~b,~c
-% h1 <- ~a,b,~c
+% h1 <- a,~c
+% h1 <- b,~c
 % h2 <- ~c
 % h3 <- a,b
+% h3 <- a,~c
+% h3 <- b,~c
+% o <- h2,~h3
+% o <- h1,~h3
+
+%% Expected Rules for Knowledge Extraction e:
+% h1 <- a,b,c
+% h1 <- a,b,~c
+% h1 <- a,~b,~c
+% h1 <- ~a,b,~c
+% h2 <- a,b,~c
+% h2 <- a,~b,~c
+% h2 <- ~a,b,~c
+% h2 <- ~a,~b,~c
+% h3 <- a,b,c
+% h3 <- a,b,~c
 % h3 <- a,~b,~c
 % h3 <- ~a,b,~c
-% o <- h2,h3
-% o <- h1,~h2,~h3
+% o <- a,b,~c
+% o <- a,~b,c
+% o <- a,~b,~c
+% o <- ~a,~b,~c

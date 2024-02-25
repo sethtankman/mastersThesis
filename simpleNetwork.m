@@ -8,12 +8,20 @@ net.IW{1,1}
 net.LW{2,1}
 net.b{1}
 net.b{2}
-view(net)
+%view(net)
 save("simp.mat", "net")
 
 %% Expected Rules:
 % h1 <- a,b,c
 % h2 <- a,c
-% h2 <- ~a,b,c
+% h2 <- b,c
 % h3 <- a,b,c
 % o <- h1, h2, h3
+
+%% Expected Rules for Knowledge Extraction e:
+% h1 <- a,b,c
+% h2 <- a,b,c
+% h2 <- a,~b,c
+% h2 <- ~a,b,c
+% h3 <- a,b,c
+% o <- a,b,c

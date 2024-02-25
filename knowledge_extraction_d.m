@@ -1,9 +1,9 @@
 %% Manual Settings
 %clear; % Comment out when timing.
 
-%load('DT_Diagnosis.mat','net'); % NAMAC 
+load('DT_Diagnosis.mat','net'); % NAMAC 
 %load('simp.mat', 'net'); % simple NN
-load('mixed.mat', 'net');
+%load('mixed.mat', 'net');
 
 A_min = 0.1; % Note: A_max = (-1)*A_min
 %%
@@ -64,60 +64,21 @@ while(layerNum <= net.numLayers) %net.numLayers
         infimum = lattice(size(lattice, 1),:);
         inputIndex = size(lattice, 1)-1;
 
-        % Query Infimum
-        inputVec = infimum(2:end);
-        infResult = myBNS(transpose(inputVec));
-        if(infResult > 0)
-            disp("h^" + layerNum + "_" + nodeNum + " <-");
-            T2 = table;
-            T2.outPut = [layerNum + "_" + nodeNum];
-            T2 = [T2 array2table(zeros(1, maxColumns))];
-            T2.Properties.VariableNames = T.Properties.VariableNames;
-            T = [T;T2];
-            nodeNum = nodeNum + 1;
-            continue;
-        else
-            lattice(size(lattice, 1),:) = [];
-        end
 
-        % Query Supremum
-        inputVec = supremum(2:end);
-        supResult = myBNS(transpose(inputVec));
-        if(supResult <= 0)
-            nodeNum = nodeNum + 1;
-            continue;
-        end
-
-        % Perform Linear Search on the lattice.
-        infIndex = 0;
-        %supIndex = 1;
-        while size(lattice, 1) >= 1 % Changed infIndex limit to 1 so that pruning can happen, eliminated supremum checks because it's hard to keep track of where it is when we start pruning
-            infimum = lattice(size(lattice, 1) - infIndex,:);
-            inputVec = infimum(2:end);
-            infResult = myBNS(transpose(inputVec));
-            if(infResult > 0)                        
-                vecMask = mask(inputIndex, 2:end);
-                %vecMask(vecMask == -1) = 1; % Undoes masking
+        % Perform Midpoint Search on the lattice.
+        while size(lattice, 1) >= 1
+            midpt = ceil(size(lattice, 1)/2);
+            inputVec = lattice(midpt,2:end);
+            actValue = myBNS(transpose(inputVec));
+            if(actValue > 0)                        
+                vecMask = mask(midpt, 2:end);
                 ruleSet = writeRule(maxColumns, inputVec, vecMask, ruleSet);
-                % Prune matrix
-                lattice = pruningRule2(lattice, inputVec, mask(inputIndex, :));
+                % Prune matrix w/rule2
+                [lattice, mask] = pruningRule2(lattice, inputVec, mask, midpt);
             else
-                lattice(size(lattice, 1) - infIndex, :) = [];
-            end
-            %supremum = lattice(supIndex, :);
-            %inputVec = supremum(2:end);
-            %supResult = myBNS(transpose(inputVec));
-            %if(supResult > 0)
-                % Don't do anything. We don't want to write rules that
-                % could be subsumed!
-                % ruleSet = writeRule(maxColumns, inputVec, ruleSet);
-            %else
-                % remove rule
-                %lattice(supIndex,:) = [];
-                % TODO: Prune matrix
-            %end
-            %supIndex = supIndex + 1;
-            inputIndex = inputIndex - 1;
+                % Prune matrix w/rule1
+                [lattice, mask] = pruningRule1(lattice, inputVec, mask, midpt);
+             end
         end
         
         if(size(ruleSet, 1) > 0)
@@ -150,16 +111,33 @@ end
 
 % Done
 
-% We know inputVec satisfies the function, so remove all entries from
-% lattice that will also satisfy the function.  Mask shows which inputs
-% have been flipped.
-function [lattice] = pruningRule2(lattice, inputVec, mask)
-    mask(mask == -1) = 0;
-    inputVec = [1 inputVec].*mask;
+% We know inputVec does not satisfy the function, so remove all entries
+% from lattice that will also not satisfy the function.  Mask shows which
+% inputs have been flipped.
+function [lattice, mask] = pruningRule1(lattice, inputVec, mask, midpt)
+    tempMask = mask(midpt, :);
+    tempMask(tempMask == 1) = 0;
+    tempMask(tempMask == -1) = 1;
+    inputVec = [1 inputVec].*tempMask;
     lhs = lattice(:, inputVec ~= 0);
     rhs = inputVec(:, inputVec ~= 0);
     comp = ismember(lhs(:,2:end), rhs(:,2:end), 'rows');
     lattice(comp, :) = [];
+    mask(comp, :) = [];
+end
+
+% We know inputVec satisfies the function, so remove all entries from
+% lattice that will also satisfy the function.  Mask shows which inputs
+% have been flipped.
+function [lattice, mask] = pruningRule2(lattice, inputVec, mask, midpt)
+    tempMask = mask(midpt, :);
+    tempMask(tempMask == -1) = 0;
+    inputVec = [1 inputVec].*tempMask;
+    lhs = lattice(:, inputVec ~= 0);
+    rhs = inputVec(:, inputVec ~= 0);
+    comp = ismember(lhs(:,2:end), rhs(:,2:end), 'rows');
+    lattice(comp, :) = [];
+    mask(comp, :) = [];
 end
 
 function [ruleSet] = writeRule(rowLength, vect, vecMask, rules)
