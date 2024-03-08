@@ -2,11 +2,11 @@ clear;
 
 % WARNING: Does not work when there are more than 9 layers in the network
 
-opts = detectImportOptions("reducedRules2.xlsx");
+opts = detectImportOptions("rawRules1.csv");
 [opts.VariableTypes{1:size(opts.VariableTypes, 2)}] = deal('string');
-T = readtable("reducedRules2.xlsx",opts);
+T = readtable("rawRules1.csv",opts);
 
-fileID = fopen('convertedRules2.txt','w');
+fileID = fopen('convertedRules1.txt','w');
 
 row = 2;
 T = erase(regexprep(T{:,:}, '^0$', 'z'), "'");
