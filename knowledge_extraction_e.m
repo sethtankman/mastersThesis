@@ -5,7 +5,7 @@ load('DT_Diagnosis.mat','net'); % NAMAC
 %load('simp.mat', 'net'); % simple NN
 %load('mixed.mat', 'net');
 
-inputVecs = getInitialInputs(20, net.inputs{1}.size);
+inputVecs = getInitialInputs(3, net.inputs{1}.size);
 %%
 
 layerNum = 1
@@ -23,7 +23,7 @@ while(layerNum <= net.numLayers) %net.numLayers
     nextLayerInputs = ones(size(inputVecs, 1), net.layers{layerNum}.size);
     while(nodeNum <= net.layers{layerNum}.size) % net.layers{layerNum}.size
         % Create Basic Neural Structure
-        myBNS = network; % later use network(numInputs,numLayers,biasConnect,inputConnect,layerConnect,outputConnect)
+        myBNS = network; % TODO: later use network(numInputs,numLayers,biasConnect,inputConnect,layerConnect,outputConnect)
         if(layerNum == 1)
             myBNS.numInputs = net.numInputs; % This actually sets the number of vectors of inputs
             myBNS.inputs{1}.processFcns = {'mapminmax'};

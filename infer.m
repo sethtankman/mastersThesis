@@ -1,3 +1,5 @@
+% Copied from ./mlcode/mlcode/rbm/infer.m by Long Tran
+% Used in confidenceRuleEncoding.m
 function [out,samples] =  infer(in,type)
 if strcmp(type,'stochastic')
     out = logistic(in);
